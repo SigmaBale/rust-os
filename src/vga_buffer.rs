@@ -1,3 +1,6 @@
+use volatile::Volatile;
+use core::fmt::Write;
+
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -56,7 +59,7 @@ const BUFFER_WIDTH: usize = 80;
 
 #[repr(transparent)]
 struct Buffer {
-    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 struct Writer {
@@ -77,10 +80,10 @@ impl Writer {
                 let row = BUFFER_HEIGHT - 1;
                 let col = self.column_position;
 
-                self.buffer.chars[row][col] = ScreenChar {
+                self.buffer.chars[row][col].write(ScreenChar {
                     ascii_character: b,
                     color_code: self.color_code
-                };
+                });
 
                 self.column_position += 1;
             }
@@ -88,7 +91,25 @@ impl Writer {
     }
 
     fn new_line(&mut self) { 
+        for row in 1..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let char = self.buffer.chars[row][col].read();
+                self.buffer.chars[row-1][col].write(char);
+            }            
+        }
+        self.clear_row(BUFFER_HEIGHT - 1);
         self.column_position = 0;
+    }
+
+    fn clear_row(&mut self, row: usize) {
+        let blank = ScreenChar {
+            ascii_character: b' ',
+            color_code: self.color_code,
+        };
+
+        for column in 0..BUFFER_WIDTH {
+            self.buffer.chars[row][column].write(blank);
+        }
     }
 }
 
@@ -102,4 +123,29 @@ impl Writer {
             }
         }
     }
+}
+
+impl Write for Writer {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.write_string(&s);
+        Ok(())
+    }
+}
+
+pub fn print_smth() {
+
+    let mut writer = Writer {
+        column_position: 0,
+        color_code: ColorCode::new(Color::LighRed, Color::DarkGray),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) }
+    };
+
+    writer.write_string("test ");
+    writer.write_string("LoŁ>l ");
+    write!(writer, "{} + {} equals {}", 1, 1, 1+1).unwrap();
+    writer.write_byte(b'\n');
+    for _ in 0..BUFFER_WIDTH {
+        writer.write_byte(b'T');
+    }
+    writer.write_string("Crazy shit.");
 }
