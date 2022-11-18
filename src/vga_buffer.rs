@@ -1,10 +1,27 @@
 use volatile::Volatile;
-use core::fmt::Write;
+use lazy_static::lazy_static;
+use spin::Mutex;
+
+lazy_static! {
+    /// This is a VGA buffer.
+    /// 
+    /// `Writer` wrapped inside `Mutex`, this makes *WRITER* `Sync` (thread safe) 
+    /// preventing data races and at the same time providing interior mutability.
+    /// 
+    /// #### WRITER is a global mutable thread-safe variable.
+    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
+        column_position: 0,
+        color_code: ColorCode::new(Color::Blue, Color::LightRed),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) }
+    });
+}
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-pub enum Color {
+// Color representation enum.
+// Variant determinants go from 0 to 15.
+enum Color {
     Black = 0,
     Blue,
     Green,
@@ -17,7 +34,7 @@ pub enum Color {
     LightBlue,
     LightGreen,
     LightCyan,
-    LighRed,
+    LightRed,
     Pink,
     Yellow,
     White,
@@ -25,6 +42,8 @@ pub enum Color {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
+// Newtype wrapper for our second byte that represents background/foreground
+// color for our ascii character (first byte)
 struct ColorCode(u8);
 
 impl ColorCode {
@@ -40,35 +59,44 @@ impl ColorCode {
         // 00000010 << 4  = 00100000
         // 00100000 | 00000011 = 00100011
         //
-        // now our first four bits hold 3 (0011),
-        // next three contain 2 (010),
-        // last bit indicates if our char is blinking
+        // now our first (lowest) four bits hold 3 (0011) = Cyan [background]
+        // next three bits contain 2 (010) = Green [foreground]
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
+// explicitly implying we want memory layout of C for this struct fields
+// this way ascii_character is at offset 0, color_code is at offset 8
+// so our layout matches the vga text format.
 struct ScreenChar {
     ascii_character: u8,
     color_code: ColorCode,
 }
 
+// vga_buffer size
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
 
 #[repr(transparent)]
+// using repr(transparent) to indicate Buffer is only a Newtype
 struct Buffer {
+    // chars is representation of vga_buffer in memory
     chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
-struct Writer {
+/// [`Writer`] that can directly write to vga_buffer.
+pub struct Writer {
     column_position: usize,
     color_code: ColorCode,
     buffer: &'static mut Buffer,
 }
 
 impl Writer {
+    // if our column_position is greater or equal to vga_buffer width
+    // or byte equals to new_line, we copy and write the values from the
+    // current row to the preceding row. (check new_line method)
     fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
@@ -90,6 +118,8 @@ impl Writer {
         }
     }
 
+    // each row gets copied and rewritten to the preceding row
+    // after that we clear the last row in vga_buffer and reset position
     fn new_line(&mut self) { 
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
@@ -101,6 +131,9 @@ impl Writer {
         self.column_position = 0;
     }
 
+    // clears the row by filling it with blank bytes -> b' '
+    // blank bytes will still have same color formatting defined in `Writer`,
+    // meaning only background color will be visible.
     fn clear_row(&mut self, row: usize) {
         let blank = ScreenChar {
             ascii_character: b' ',
@@ -113,7 +146,10 @@ impl Writer {
     }
 }
 
-// pub API
+// Public API of our Writer, this is one of core functions that allows us to write
+// bytes into our vga_buffer.
+// Only ASCII bytes from 0x20 (hexadecimal) through 0x7e including new_line (\n) are valid.
+// Invalid ASCII is printed as 0xfe. (check README.md for valid ASCII table)
 impl Writer {
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
@@ -125,27 +161,31 @@ impl Writer {
     }
 }
 
-impl Write for Writer {
+// Implementing Write trait so we can write and format into our buffer in various ways,
+// this is a must for ergonomics and for ease of use (macros are so gooooood)
+impl core::fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.write_string(&s);
         Ok(())
     }
 }
 
-pub fn print_smth() {
+// Macro juice, oh god I just copy pasted it all from stdlib and changed crate path
+// Also _print function is changed so it writes to WRITER (global)
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
 
-    let mut writer = Writer {
-        column_position: 0,
-        color_code: ColorCode::new(Color::LighRed, Color::DarkGray),
-        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) }
-    };
+#[macro_export]
+macro_rules! println {
+    () => (print!("\n"));
+    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
+}
 
-    writer.write_string("test ");
-    writer.write_string("LoŁ>l ");
-    write!(writer, "{} + {} equals {}", 1, 1, 1+1).unwrap();
-    writer.write_byte(b'\n');
-    for _ in 0..BUFFER_WIDTH {
-        writer.write_byte(b'T');
-    }
-    writer.write_string("Crazy shit.");
+// Writes directly to vga_buffer aka WRITER (global buff)
+#[doc(hidden)]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    WRITER.lock().write_fmt(args).unwrap();
 }
