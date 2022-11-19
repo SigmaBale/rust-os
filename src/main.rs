@@ -5,6 +5,22 @@
 #![reexport_test_harness_main = "test_main"] // Renaming/ReExporting test function name to test_main because of no_main attribute
 
 mod vga_buffer;
+mod serial;
+
+#[repr(u32)]
+pub enum QemuExitCode {
+    Success = 0x10, // 16 
+    Failed = 0x11, // 17
+}
+
+pub fn exit_qemu(exit_code: QemuExitCode) {
+    use x86_64::instructions::port::Port;
+
+    unsafe {
+        let mut port = Port::new(0xf4);
+        port.write(exit_code as u32);
+    }
+}
 
 #[no_mangle] // Don't mangle the name of this function
 // This fn is the entry point, since the linker looks for function named '_start' by default,
@@ -21,6 +37,7 @@ pub extern "C" fn _start() -> ! {
 }
 
 // This function is called on panic.
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");
@@ -28,18 +45,33 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 }
 
 #[cfg(test)]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    serial_println!("[failed]\n");
+    serial_println!("Error: {}\n", info);
+    exit_qemu(QemuExitCode::Failed);
+    loop {}
+}
+
+#[cfg(test)]
 fn test_runner(tests: &[&dyn Fn()]) {
-    println!("Running {} tests", tests.len());
+    if tests.len() < 2 {
+        serial_println!("Running {} test", tests.len());
+    } else {
+        serial_println!("Running {} tests", tests.len());
+    }
+
     for test in tests {
         test();
     }
+    exit_qemu(QemuExitCode::Success);
 }
 
 #[test_case]
 fn trivial_assertion() {
-    print!("trivial_assertion...");
+    serial_print!("trivial_assertion...");
     assert!(1 == 1);
-    println!("[ok]");
+    serial_println!("[ok]");
 }
 
 

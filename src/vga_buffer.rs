@@ -1,8 +1,7 @@
 use volatile::Volatile;
-use lazy_static::lazy_static;
 use spin::Mutex;
 
-lazy_static! {
+lazy_static::lazy_static! {
     /// This is a VGA buffer.
     /// 
     /// `Writer` wrapped inside `Mutex`, this makes *WRITER* `Sync` (thread safe) 
