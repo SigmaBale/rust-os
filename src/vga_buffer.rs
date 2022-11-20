@@ -179,7 +179,7 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => (print!("\n"));
-    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
 // Writes directly to vga_buffer aka WRITER (global buff)
@@ -187,4 +187,14 @@ macro_rules! println {
 pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
     WRITER.lock().write_fmt(args).unwrap();
+}
+
+#[test_case]
+fn test_println_output() {
+    let output = "Check if this string is in the vga_buffer.";
+    println!("{output}");
+    for (i, char) in output.chars().enumerate() {
+        let buffer_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
+        assert_eq!(buffer_char.ascii_character as char, char);
+    }
 }
