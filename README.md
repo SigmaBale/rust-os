@@ -10,4 +10,4 @@ Valid ASCII:
 ## serial
 
 COMs (communication ports):
-[Port Addresses](https://github.com/SigmaBale/rust-os/blob/main/readme_resources/I-O ports.png?raw=true)
+[Port Addresses](https://github.com/SigmaBale/rust-os/blob/main/readme_resources/I-Oports.png?raw=true)
