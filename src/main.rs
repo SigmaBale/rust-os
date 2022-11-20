@@ -6,6 +6,8 @@
 
 mod vga_buffer;
 mod serial;
+use nostd_color::colorize::Colored;
+use nostd_color::colors::*;
 
 #[repr(u32)]
 pub enum QemuExitCode {
@@ -47,31 +49,38 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 #[cfg(test)]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    serial_println!("[failed]\n");
+    serial_println!("{}\n", "[failed]".fg(BRIGHT_RED));
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failed);
     loop {}
 }
 
 #[cfg(test)]
-fn test_runner(tests: &[&dyn Fn()]) {
-    if tests.len() < 2 {
-        serial_println!("Running {} test", tests.len());
-    } else {
-        serial_println!("Running {} tests", tests.len());
-    }
+pub fn test_runner(tests: &[&dyn Testable]) {
+    serial_println!("\nRunning {} tests", tests.len());
 
     for test in tests {
-        test();
+        test.run();
     }
     exit_qemu(QemuExitCode::Success);
 }
 
 #[test_case]
 fn trivial_assertion() {
-    serial_print!("trivial_assertion...");
     assert!(1 == 1);
-    serial_println!("[ok]");
 }
 
+pub trait Testable {
+    fn run(&self);
+}
 
+impl<T> Testable for T
+where
+    T: Fn(),
+{
+    fn run(&self) {
+        serial_print!("{}...\t", core::any::type_name::<T>());
+        self();
+        serial_println!("[{}]", "ok".fg(BRIGHT_GREEN));
+    }
+}
