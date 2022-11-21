@@ -7,7 +7,7 @@
 pub mod vga_buffer;
 pub mod serial;
 
-use nostd_color::colors::{BRIGHT_RED, BRIGHT_GREEN};
+use nostd_color::colors::{BRIGHT_RED, BRIGHT_GREEN, YELLOW, RED};
 use nostd_color::colorize::Colored;
 
 #[repr(u32)]
@@ -34,7 +34,7 @@ where
     T: Fn(),
 {
     fn run(&self) {
-        serial_print!("{}...\t", core::any::type_name::<T>());
+        serial_print!("{}...\t", core::any::type_name::<T>().fg(YELLOW));
         self();
         serial_println!("[{}]", "ok".fg(BRIGHT_GREEN));
     }
@@ -45,9 +45,8 @@ where
 //                                     Tests section                                        //
 //                                                                                          //
 // ---------------------------------------------------------------------------------------- //
-
 pub fn test_runner(tests: &[&dyn Testable]) {
-    serial_println!("\nRunning {} tests", tests.len());
+    serial_println!("\nRunning {} tests", tests.len().fg(YELLOW));
     for test in tests {
         test.run();
     }
@@ -56,11 +55,14 @@ pub fn test_runner(tests: &[&dyn Testable]) {
 
 pub fn test_panic_handler(info: &core::panic::PanicInfo) -> ! {
     serial_println!("[{}]", "failed".fg(BRIGHT_RED));
-    serial_println!("Error: {}\n", info);
+    serial_println!("{}: {}\n","Error".fg(RED), info);
     exit_qemu(QemuExitCode::Failed);
     loop {}
 }
 
+// ------------------------------------ //
+//       ENTRY AND PANIC HANDLER        //
+// ------------------------------------ //
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
@@ -75,11 +77,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
-
 // ------------------------------------ //
 //              UNIT TESTS              //
 // ------------------------------------ //
-
 #[test_case]
 fn test_println_basic() {
     println!("Basic println test.");

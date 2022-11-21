@@ -161,7 +161,7 @@ impl Writer {
 }
 
 // Implementing Write trait so we can write and format into our buffer in various ways,
-// this is a must for ergonomics and for ease of use (macros are so gooooood)
+// this is a must for ergonomics and for ease of use (macros are very nice)
 impl core::fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.write_string(&s);
