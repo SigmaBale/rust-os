@@ -48,6 +48,8 @@ dependencies = [
 [[package]]
 name = "nostd_color"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d0e8c5d962cfd4c8e849d63b09f1e50b711a2092115f55aa9cbdbc8e94010eb"
 
 [[package]]
 name = "rust-os"
