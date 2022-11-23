@@ -11,9 +11,7 @@ use core::panic::PanicInfo;
 // This fn is the entry point, since the linker looks for function named '_start' by default,
 // this is the reason for no_mangle attribute.
 pub extern "C" fn _start() -> ! {
-    for i in 0..25 {
-        println!("{}. El. Psy. Kongroo.", i);
-    }
+    println!("El. Psy. Kongroo.");
 
     #[cfg(test)]
     test_main();
