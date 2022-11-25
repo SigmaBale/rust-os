@@ -74,6 +74,7 @@ pub fn test_panic_handler(info: &core::panic::PanicInfo) -> ! {
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    init();
     test_main();
     loop {}
 }
@@ -98,4 +99,9 @@ fn test_println_many() {
     for _ in 0..200 {
         println!("Testing println many.");
     }
+}
+
+#[test_case]
+fn test_exception_handler() {
+    x86_64::instructions::interrupts::int3();
 }
