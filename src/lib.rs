@@ -14,18 +14,6 @@ use nostd_color::colorize::Colored;
 
 /// General init function for our OS.
 /// 
-/// **Initialize [`IDT`][x86_64::structures::idt::InterruptDescriptorTable]**, aka load the idt into
-/// the interrupt descriptor table register.
-/// 
-/// Assembly:
-///```no_run
-///fn lido(idt: &DescriptorTablePointer) {
-///    // We pass the Interrupt Descriptor Table pointer that contains limit and base:
-///    // limit: u16 = size_of::<InterruptDescriptorTable>() - 1; (max = 255)
-///    // address: u64 = InterruptDescriptorTable as *const _ as u64;
-///    asm!("lido [{}]", in(reg) idt, options(preserve_flags, readonly, nostack)); 
-///}
-///```
 pub fn init() {
     interrupts::init_idt();
 }
