@@ -1,5 +1,4 @@
 # rust-os
-OS made in Rust that you can learn to build from https://os.phil-opp.com/.
 
 ## vga_buffer
 
