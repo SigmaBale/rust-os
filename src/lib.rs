@@ -3,12 +3,32 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![feature(abi_x86_interrupt)] // Experimental calling convention for interrupt/exception handler functions
 
 pub mod vga_buffer;
 pub mod serial;
+pub mod interrupts;
 
 use nostd_color::colors::{BRIGHT_RED, BRIGHT_GREEN, YELLOW, RED};
 use nostd_color::colorize::Colored;
+
+/// General init function for our OS.
+/// 
+/// **Initialize [`IDT`][x86_64::structures::idt::InterruptDescriptorTable]**, aka load the idt into
+/// the interrupt descriptor table register.
+/// 
+/// Assembly:
+///```no_run
+///fn lido(idt: &DescriptorTablePointer) {
+///    // We pass the Interrupt Descriptor Table pointer that contains limit and base:
+///    // limit: u16 = size_of::<InterruptDescriptorTable>() - 1; (max = 255)
+///    // address: u64 = InterruptDescriptorTable as *const _ as u64;
+///    asm!("lido [{}]", in(reg) idt, options(preserve_flags, readonly, nostack)); 
+///}
+///```
+pub fn init() {
+    interrupts::init_idt();
+}
 
 #[repr(u32)]
 pub enum QemuExitCode {
@@ -25,6 +45,11 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
+// ---------------------------------------------------------------------------------------- //
+//                                                                                          //
+//                                     Tests section                                        //
+//                                                                                          //
+// ---------------------------------------------------------------------------------------- //
 pub trait Testable {
     fn run(&self);
 }
@@ -40,11 +65,6 @@ where
     }
 }
 
-// ---------------------------------------------------------------------------------------- //
-//                                                                                          //
-//                                     Tests section                                        //
-//                                                                                          //
-// ---------------------------------------------------------------------------------------- //
 pub fn test_runner(tests: &[&dyn Testable]) {
     serial_println!("\nRunning {} tests", tests.len().fg(YELLOW));
     for test in tests {
