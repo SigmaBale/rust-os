@@ -8,6 +8,7 @@
 pub mod vga_buffer;
 pub mod serial;
 pub mod interrupts;
+pub mod gdt;
 
 use nostd_color::colors::{BRIGHT_RED, BRIGHT_GREEN, YELLOW, RED};
 use nostd_color::colorize::Colored;
@@ -15,6 +16,7 @@ use nostd_color::colorize::Colored;
 /// General init function for our OS.
 /// 
 pub fn init() {
+    gdt::init_gdt();
     interrupts::init_idt();
 }
 

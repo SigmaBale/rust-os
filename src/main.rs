@@ -15,8 +15,11 @@ pub extern "C" fn _start() -> ! {
 
     rust_os::init();
 
-    // Invoke a breakpoint exception (asm: int3)
-    x86_64::instructions::interrupts::int3();
+    fn stack_overflow() {
+        stack_overflow();
+    }
+
+    stack_overflow();
 
     #[cfg(test)]
     test_main();
