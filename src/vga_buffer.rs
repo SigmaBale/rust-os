@@ -10,7 +10,7 @@ lazy_static::lazy_static! {
     /// #### WRITER is a global mutable thread-safe variable.
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
-        color_code: ColorCode::new(Color::Blue, Color::LightRed),
+        color_code: ColorCode::new(Color::White, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) }
     });
 }
@@ -53,10 +53,10 @@ impl ColorCode {
         // Example: 
         // foreground = Color(2), background = Color(3)
         // 
-        // 2 as u8 = 00000010, 3 as u8 = 00000011
+        // 2 as u8 = 0000_0010, 3 as u8 = 0000_0011
         //
-        // 00000010 << 4  = 00100000
-        // 00100000 | 00000011 = 00100011
+        // 0000_0010 << 4  = 0010_0000
+        // 0010_0000 | 0000_0011 = 0010_0011
         //
         // now our first (lowest) four bits hold 3 (0011) = Cyan [background]
         // next three bits contain 2 (010) = Green [foreground]
@@ -67,7 +67,7 @@ impl ColorCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 // explicitly implying we want memory layout of C for this struct fields
-// this way ascii_character is at offset 0, color_code is at offset 8
+// this way ascii_character is at offset 0, color_code is at offset 1(8 bits)
 // so our layout matches the vga text format.
 struct ScreenChar {
     ascii_character: u8,

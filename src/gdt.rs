@@ -9,7 +9,7 @@ pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
 lazy_static! {
     // --------------------------------------------------------------------------------------------------------------┑
-    // Task State Segment, it contains interrupt stack table to use a "safe" stack                                   |
+    // Task State Segment contains interrupt stack table to use a "safe" stack                                       |
     // that is not overflowed, these stacks are used for interrupts e.g. if stack overflows                          |
     // CPU will invoke page fault exception and will push the exception stack frame on to the                        |
     // already overflowed stack, actually it will check that stack pointer is still pointing                         |
@@ -31,6 +31,8 @@ lazy_static! {
         tss
     };
 
+    // Global Descriptor Table is legacy structure that was used mostly before memory paging was a thing
+    // and when memory 
     static ref GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
         let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
