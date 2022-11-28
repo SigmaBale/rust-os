@@ -41,13 +41,11 @@ pub extern "C" fn _start() -> ! {
 
     stack_overflow();
 
-    panic!();
+    panic!("Execution continued after overflow!");
 }
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    serial_print!("[{}]\n", "failed".fg(RED));
-    exit_qemu(QemuExitCode::Failed);
     loop {}
 }
 
