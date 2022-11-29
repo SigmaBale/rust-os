@@ -169,7 +169,7 @@ impl core::fmt::Write for Writer {
     }
 }
 
-// Macro juice, oh god I just copy pasted it all from stdlib and changed crate path
+// Macro juice oh god, I just copy pasted it all from stdlib and changed crate path
 // Also _print function is changed so it writes to WRITER (global)
 #[macro_export]
 macro_rules! print {
