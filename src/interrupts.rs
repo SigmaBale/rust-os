@@ -14,6 +14,8 @@ lazy_static!{
     pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
+        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
+        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         unsafe {
             // Here we are able to modify and set options and handler function for each entry inside our IDT.
             idt.double_fault
@@ -21,8 +23,6 @@ lazy_static!{
                 .set_handler_fn(double_fault_handler)
                 // We can of course set which stack to use from interrupt_stack_table in GDT.
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
-            idt[InterruptIndex::Timer.as_usize()]
-                .set_handler_fn(timer_handler);
         }
         idt
     };
@@ -62,7 +62,24 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
 }
 
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
-    print!(".")
+    print!(".");
+
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+    }
+}
+
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use x86_64::instructions::port::Port;
+
+    // PS/2 port = 0x60
+    let mut ps2_port = Port::new(0x60);
+    let key: u8 = unsafe { ps2_port.read() };
+    print!("{}", key);
+
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+    }
 }
 
 pub const PIC_1_OFFSET: u8 = 32;
@@ -81,6 +98,7 @@ pub unsafe fn init_pics() {
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
+    Keyboard,
 }
 
 impl InterruptIndex {

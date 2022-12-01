@@ -186,15 +186,25 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap()
+    });
 }
 
 #[test_case]
 fn test_println_output() {
+    use x86_64::instructions::interrupts;
+    use core::fmt::Write;
+
     let output = "Check if this string is in the vga_buffer.";
-    println!("{output}");
-    for (i, char) in output.chars().enumerate() {
-        let buffer_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(buffer_char.ascii_character as char, char);
-    }
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", output).expect("writeln! failed");
+        for (i, char) in output.chars().enumerate() {
+            let buffer_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(buffer_char.ascii_character as char, char);
+        }
+    });
 }

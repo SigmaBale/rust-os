@@ -6,13 +6,13 @@
 
 use core::panic::PanicInfo;
 
-use rust_os::println;
+use rust_os::{println, htl_loop};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     test_main();
 
-    loop {}
+    htl_loop()
 }
 
 #[panic_handler]

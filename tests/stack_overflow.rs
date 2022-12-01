@@ -3,7 +3,7 @@
 #![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
-use rust_os::{serial_print, QemuExitCode, exit_qemu};
+use rust_os::{serial_print, QemuExitCode, exit_qemu, htl_loop};
 use lazy_static::lazy_static;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use nostd_color::colorize::Colored;
@@ -25,7 +25,7 @@ lazy_static! {
 extern "x86-interrupt" fn test_double_fault_handler(stack_frame: InterruptStackFrame, _error_code: u64) -> ! {
     serial_print!("[{}]\n", "ok".fg(GREEN));
     exit_qemu(QemuExitCode::Success);
-    loop {}
+    htl_loop()
 }
 
 fn idt_init_test() {
@@ -46,7 +46,7 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    loop {}
+    htl_loop()
 }
 
 #[allow(unconditional_recursion)]

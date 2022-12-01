@@ -24,6 +24,13 @@ pub fn init() {
     x86_64::instructions::interrupts::enable();
 }
 
+pub fn htl_loop() -> ! {
+    loop {
+        // Enter idle state aka halts the CPU until next interrupt arrives.
+        x86_64::instructions::hlt();
+    }
+}
+
 #[repr(u32)]
 pub enum QemuExitCode {
     Success = 0x10, // 16 
@@ -71,7 +78,7 @@ pub fn test_panic_handler(info: &core::panic::PanicInfo) -> ! {
     serial_println!("[{}]", "failed".fg(BRIGHT_RED));
     serial_println!("{}: {}\n","Error".fg(RED), info);
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    htl_loop()
 }
 
 // ------------------------------------ //
@@ -82,7 +89,7 @@ pub fn test_panic_handler(info: &core::panic::PanicInfo) -> ! {
 pub extern "C" fn _start() -> ! {
     init();
     test_main();
-    loop {}
+    htl_loop()
 }
 
 // This function is called on panic.

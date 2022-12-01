@@ -14,11 +14,11 @@ pub extern "C" fn _start() -> ! {
     println!("El. Psy. Kongroo.");
 
     rust_os::init();
-
+    
     #[cfg(test)]
     test_main();
 
-    loop {}
+    rust_os::htl_loop()
 }
 
 /// This function is called on panic.

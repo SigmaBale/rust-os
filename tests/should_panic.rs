@@ -3,14 +3,14 @@
 
 use core::panic::PanicInfo;
 use nostd_color::{colorize::Colored, colors::{BRIGHT_GREEN, BRIGHT_RED, YELLOW}};
-use rust_os::{exit_qemu, QemuExitCode, serial_print, serial_println};
+use rust_os::{exit_qemu, QemuExitCode, serial_print, serial_println, htl_loop};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     should_fail();
     serial_println!("[{}]", "failed".fg(BRIGHT_RED));
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    htl_loop()
 }
 
 // If test panics, then test passes.
@@ -18,7 +18,7 @@ pub extern "C" fn _start() -> ! {
 fn panic(_info: &PanicInfo) -> ! {
     serial_println!("[{}]", "ok".fg(BRIGHT_GREEN));
     exit_qemu(QemuExitCode::Success);
-    loop {}
+    htl_loop()
 }
 
 fn should_fail() {
