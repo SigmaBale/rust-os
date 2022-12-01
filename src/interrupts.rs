@@ -1,7 +1,7 @@
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-
-use crate::{println, gdt};
+use pic8259::ChainedPics;
 use lazy_static::lazy_static;
+use crate::{println, gdt, print};
 
 lazy_static!{
     // ---------------------------------------------------------------------------------------------------------------------------------┐
@@ -21,6 +21,8 @@ lazy_static!{
                 .set_handler_fn(double_fault_handler)
                 // We can of course set which stack to use from interrupt_stack_table in GDT.
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
+            idt[InterruptIndex::Timer.as_usize()]
+                .set_handler_fn(timer_handler);
         }
         idt
     };
@@ -59,3 +61,34 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
     panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
 }
 
+extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
+    print!(".")
+}
+
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+pub static PICS: spin::Mutex<ChainedPics> = {
+    let pics = unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) };
+    spin::Mutex::new(pics)
+};
+
+pub unsafe fn init_pics() {
+   PICS.lock().initialize()
+}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum InterruptIndex {
+    Timer = PIC_1_OFFSET,
+}
+
+impl InterruptIndex {
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    pub fn as_usize(self) -> usize {
+        usize::from(self.as_u8())
+    }
+}

@@ -18,6 +18,10 @@ use nostd_color::colorize::Colored;
 pub fn init() {
     gdt::init_gdt();
     interrupts::init_idt();
+    unsafe { interrupts::init_pics() }
+    // The interrupts::enable function of the x86_64 crate executes the special sti instruction
+    // (“set interrupts” - assembly) to enable external interrupts.
+    x86_64::instructions::interrupts::enable();
 }
 
 #[repr(u32)]

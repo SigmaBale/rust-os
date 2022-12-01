@@ -16,6 +16,7 @@ lazy_static::lazy_static! {
 }
 
 // Macros for printing to serial port, SerialPort already has implementation of Write trait.
+// All inline assembly is inisde uart_16550 crate for writing and reading to the ports (in, out - assembly instructions).
 #[doc(hidden)]
 pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
