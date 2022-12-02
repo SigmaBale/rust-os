@@ -12,15 +12,17 @@ pub mod gdt;
 
 use nostd_color::colors::{BRIGHT_RED, BRIGHT_GREEN, YELLOW, RED};
 use nostd_color::colorize::Colored;
+use x86_64::instructions::port::Port;
 
 /// General init function for our OS.
 /// 
 pub fn init() {
     gdt::init_gdt();
     interrupts::init_idt();
-    unsafe { interrupts::init_pics() }
-    // The interrupts::enable function of the x86_64 crate executes the special sti instruction
-    // (“set interrupts” - assembly) to enable external interrupts.
+    unsafe { interrupts::PICS.lock().initialize() }
+
+    // The interrupts::enable function of the x86_64 crate executes the special sti ("assembly") instruction
+    // (“set interrupts”) to enable external interrupts.
     x86_64::instructions::interrupts::enable();
 }
 
@@ -38,8 +40,6 @@ pub enum QemuExitCode {
 }
 
 pub fn exit_qemu(exit_code: QemuExitCode) {
-    use x86_64::instructions::port::Port;
-
     unsafe {
         let mut port = Port::new(0xf4);
         port.write(exit_code as u32);

@@ -22,5 +22,5 @@ pub fn panic(info: &PanicInfo) -> ! {
 
 #[test_case]
 fn test_println() {
-    println!("This shouldn't panick.");
+    println!("This shouldn't panic.");
 }

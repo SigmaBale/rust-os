@@ -1,4 +1,4 @@
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::{structures::idt::{InterruptDescriptorTable, InterruptStackFrame}, instructions::port::Port};
 use pic8259::ChainedPics;
 use lazy_static::lazy_static;
 use crate::{println, gdt, print};
@@ -14,16 +14,16 @@ lazy_static!{
     pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
-        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
-        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         unsafe {
             // Here we are able to modify and set options and handler function for each entry inside our IDT.
             idt.double_fault
                 // Method for setting our handler function, for our selected entry.
                 .set_handler_fn(double_fault_handler)
-                // We can of course set which stack to use from interrupt_stack_table in GDT.
+                // We can of course set which stack to use from interrupt_stack_table in GDT. (0-7)
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
+        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
+        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt
     };
 }
@@ -65,34 +65,54 @@ extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
     print!(".");
 
     unsafe {
-        PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+        PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8())
     }
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    use x86_64::instructions::port::Port;
+    use pc_keyboard::{Keyboard, layouts, ScancodeSet1, HandleControl, DecodedKey};
+    use spin::Mutex;
 
-    // PS/2 port = 0x60
-    let mut ps2_port = Port::new(0x60);
-    let key: u8 = unsafe { ps2_port.read() };
-    print!("{}", key);
+    lazy_static! {
+        pub static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
+            Mutex::new(Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::Ignore));
+    }
+
+    let mut keyboard = KEYBOARD.lock();
+    let mut port = Port::new(0x60);
+
+    let scancode: u8 = unsafe { port.read() };
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(char) => print!("{}", char),
+                DecodedKey::RawKey(key) => print!("{:?}", key),
+            }
+        }
+    }
 
     unsafe {
-        PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+        PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8())
     }
 }
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-pub static PICS: spin::Mutex<ChainedPics> = {
-    let pics = unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) };
-    spin::Mutex::new(pics)
-};
-
-pub unsafe fn init_pics() {
-   PICS.lock().initialize()
-}
+// -----------------------------------------------------------------------------------------┐
+//                      ____________                          ____________                  |
+// Real Time Clock --> |            |   Timer -------------> |            |                 |
+// ACPI -------------> |            |   Keyboard-----------> |            |      _____      |
+// Available --------> | Secondary  |----------------------> | Primary    |     |     |     |
+// Available --------> | Interrupt  |   Serial Port 2 -----> | Interrupt  |---> | CPU |     |
+// Mouse ------------> | Controller |   Serial Port 1 -----> | Controller |     |_____|     |
+// Co-Processor -----> |            |   Parallel Port 2/3 -> |            |                 |
+// Primary ATA ------> |            |   Floppy disk -------> |            |                 |
+// Secondary ATA ----> |____________|   Parallel Port 1----> |____________|                 |
+//                                                                                          |
+// -----------------------------------------------------------------------------------------┚
+pub static PICS: spin::Mutex<ChainedPics> =
+    spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
