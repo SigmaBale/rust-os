@@ -14,6 +14,11 @@ pub extern "C" fn _start() -> ! {
     println!("El. Psy. Kongroo.");
 
     rust_os::init();
+
+    use x86_64::registers::control::Cr3;
+
+    let (lvl_4_table, _) = Cr3::read();
+    println!("level 4 table is at address {:?}", lvl_4_table.start_address());
     
     #[cfg(test)]
     test_main();
