@@ -1,1 +1,3 @@
 # rust-os
+
+Discontinued until I read some books...
